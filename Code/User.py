@@ -13,6 +13,7 @@ from interface.User_windows.personal_area import Ui_personal_area
 import re
 from datetime import datetime
 
+
 class UserMenu(QMainWindow):
     def __init__(self, login):
         """ Конструктор класса UserMenu """
