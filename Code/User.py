@@ -10,7 +10,8 @@ from interface.User_windows.book_ready import Ui_book_ready
 from interface.User_windows.ready_choose import Ui_ready_choose
 from interface.User_windows.my_reserv import Ui_My_reserv
 from interface.User_windows.personal_area import Ui_personal_area
-
+import re
+from datetime import datetime
 
 class UserMenu(QMainWindow):
     def __init__(self, login):
@@ -61,6 +62,30 @@ class PersonalArea(QMainWindow):
         """ Метод для изменения логина и/или пароля """
         new_login = self.ui.lineEdit.text()
         new_password = self.ui.lineEdit_2.text()
+        data = [new_login, new_password]
+        spisok = ['!', '@', '#', ',', '%', '^', '&', '*', '=', '[', ']', '{', '}',
+                  '|', '/', '.', ',', ';', ':', '?', '<', '>', '№']
+
+        if len(new_login) == 0:
+            self.ui.label_4.setText('Поле логина не должно быть пустым!')
+            return
+
+        if len(new_password) == 0:
+            self.ui.label_4.setText('Поле пароля не должно быть пустым!')
+            return
+
+        if any(char in spisok for string in data for char in string):
+            self.ui.label_4.setText('Поля не должны содержать символы!')
+            return
+
+        if len(new_login) > 50:
+            self.ui.label_4.setText('Поле логина должно содержать менее 50 символов!')
+            return
+
+        if len(new_password) > 50:
+            self.ui.label_4.setText('Поле пароля должно содержать менее 50 символов!')
+            return
+
         self.query.exec(f"UPDATE User SET login = '{new_login}', password = '{new_password}'"
                         f"WHERE login = '{self.login}'")
         self.login = new_login
@@ -95,6 +120,21 @@ class BookRoom(QMainWindow):
         date = [check_in_date, eviction_date]
         room_type = self.ui.comboBox.currentText()
         amount = int(self.ui.comboBox_2.currentText())
+
+        def validate_date(input_date, date_format='%Y-%m-%d'):
+            try:
+                validated_date = datetime.strptime(input_date, date_format)
+                return True, validated_date
+            except ValueError:
+                return False, None
+
+        is_valid, formatted_date = validate_date(check_in_date)
+        if not is_valid:
+            self.ui.label_6.setText('Поле даты заселения содержит недопустимое значение!')
+
+        is_valid, formatted_date = validate_date(eviction_date)
+        if not is_valid:
+            self.ui.label_6.setText('Поле даты выселения содержит недопустимое значение!')
 
         if sum(char.isdigit() for char in check_in_date) != 8:
             self.ui.label_6.setText('Поле даты заселения \n содержит недопустимое значение!')
@@ -201,6 +241,19 @@ class ReadyChoose(QMainWindow):
 
         fio = f"{name} {surname} {patronymic}"
         passport = f"{seria} {nomer}"
+
+        def validate_phone_number(phone_number):
+            # Шаблон для проверки номера телефона: +7 (XXX) XXX-XXXX
+            phone_pattern = re.compile(r'^\+7 \(\d{3}\) \d{3}-\d{4}$')
+
+            # Проверяем соответствие номера телефона шаблону
+            if phone_pattern.match(phone_number):
+                return True
+            else:
+                return False
+
+        if not validate_phone_number(phone_number):
+            self.ui.label_8.setText("Ошибка в формате номера телефона +7 (XXX) XXX-XXXX.")
 
         if sum(char.isdigit() for char in strings) == 0:
             self.ui.label_8.setText('Поля не должны быть пустыми!')

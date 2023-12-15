@@ -106,6 +106,9 @@ class Reg(QMainWindow):
         user_login = self.ui.lineEdit.text()
         user_password = self.ui.lineEdit_2.text()
         user_role = self.ui.comboBox.currentText()
+        spisok = ['!', '@', '#', ',', '%', '^', '&', '*', '=', '[', ']', '{', '}',
+                  '|', '/', '.', ',', ';', ':', '?', '<', '>', '№']
+        strings = [user_login, user_password]
 
         if len(user_login) == 0:
             self.ui.label_5.setText('Поле логина не должно быть пустым!')
@@ -113,6 +116,18 @@ class Reg(QMainWindow):
 
         if len(user_password) == 0:
             self.ui.label_5.setText('Поле пароля не должно быть пустым!')
+            return
+
+        if any(char in spisok for string in strings for char in string):
+            self.ui.label_5.setText('Поля не должны содержать символы!')
+            return
+
+        if len(user_login) > 50:
+            self.ui.label_5.setText('Поле логина должно содержать менее 50 символов!')
+            return
+
+        if len(user_password) > 50:
+            self.ui.label_5.setText('Поле пароля должно содержать менее 50 символов!')
             return
 
         self.query.exec(f'SELECT login FROM User WHERE login={user_login}')

@@ -9,6 +9,9 @@ from interface.Admin_windows.choose import Ui_Choose
 from interface.Admin_windows.database import Ui_Database
 from interface.Admin_windows.personal_area import Ui_personal_area
 from Code.database import db
+import re
+from datetime import datetime
+
 
 
 class AdminMenu(QMainWindow):
@@ -106,7 +109,7 @@ class Choose(QMainWindow):
         self.ui.lineEdit_3.setPlaceholderText('Patronymic')
         self.ui.lineEdit_7.setPlaceholderText('1234')
         self.ui.lineEdit_8.setPlaceholderText('123456')
-        self.ui.lineEdit_4.setPlaceholderText('+7(990)000-00-00')
+        self.ui.lineEdit_4.setPlaceholderText('+7(990)000-0000')
         self.ui.lineEdit_5.setPlaceholderText('2020-10-10')
         self.ui.lineEdit_6.setPlaceholderText('2020-10-10')
 
@@ -130,6 +133,34 @@ class Choose(QMainWindow):
         fio = f"{name} {surname} {patronymic}"
         passport = f"{seria} {nomer}"
 
+        def validate_phone_number(phone_number):
+            # Шаблон для проверки номера телефона: +7 (XXX) XXX-XXXX
+            phone_pattern = re.compile(r'^\+7 \(\d{3}\) \d{3}-\d{4}$')
+
+            # Проверяем соответствие номера телефона шаблону
+            if phone_pattern.match(phone_number):
+                return True
+            else:
+                return False
+
+        if not validate_phone_number(phone_number):
+            self.ui.label_11.setText("Ошибка в формате номера телефонаt +7 (XXX) XXX-XXXX.")
+
+        def validate_date(input_date, date_format='%Y-%m-%d'):
+            try:
+                validated_date = datetime.strptime(input_date, date_format)
+                return True, validated_date
+            except ValueError:
+                return False, None
+
+        is_valid, formatted_date = validate_date(start_date)
+        if not is_valid:
+            self.ui.label_11.setText('Поле даты заселения содержит недопустимое значение!')
+
+        is_valid, formatted_date = validate_date(end_date)
+        if not is_valid:
+            self.ui.label_11.setText('Поле даты выселения содержит недопустимое значение!')
+
         if sum(char.isdigit() for char in strings) == 0:
             self.ui.label_11.setText('Поля не должны быть пустыми!')
             return
@@ -137,19 +168,19 @@ class Choose(QMainWindow):
             self.ui.label_11.setText('Поля не должны содержать символы!')
             return
         if len(seria) != 4:
-            self.ui.label_8.setText('Серия паспорта содержит недопустимое значение!')
+            self.ui.label_11.setText('Серия паспорта содержит недопустимое значение!')
             return
         if len(nomer) != 6:
-            self.ui.label_8.setText('Номер паспорта содержит недопустимое значение!')
+            self.ui.label_11.setText('Номер паспорта содержит недопустимое значение!')
             return
         if sum(char.isdigit() for char in phone_number) != 11:
             self.ui.label_11.setText('Поле номера телефона содержит недопустимое значение!')
             return
         if sum(char.isdigit() for char in start_date) != 8:
-            self.ui.label_6.setText('Поле даты заселения содержит недопустимое значение!')
+            self.ui.label_11.setText('Поле даты заселения содержит недопустимое значение!')
             return
         if sum(char.isdigit() for char in end_date) != 8:
-            self.ui.label_6.setText('Поле даты выселения содержит недопустимое значение!')
+            self.ui.label_11.setText('Поле даты выселения содержит недопустимое значение!')
             return
 
         self.query.exec(f"INSERT INTO Reservation(type_id, FIO, passport, phone, check_in_date, eviction_date)"
@@ -235,6 +266,30 @@ class PersonalArea(QMainWindow):
         """ Метод для изменения логина и/или пароля """
         new_login = self.ui.lineEdit_3.text()
         new_password = self.ui.lineEdit_4.text()
+        data = [new_login, new_password]
+        spisok = ['!', '@', '#', ',', '%', '^', '&', '*', '=', '[', ']', '{', '}',
+                  '|', '/', '.', ',', ';', ':', '?', '<', '>', '№']
+
+        if len(new_login) == 0:
+            self.ui.label_1.setText('Поле логина не должно быть пустым!')
+            return
+
+        if len(new_password) == 0:
+            self.ui.label_1.setText('Поле пароля не должно быть пустым!')
+            return
+
+        if any(char in spisok for string in data for char in string):
+            self.ui.label_1.setText('Поля не должны содержать символы!')
+            return
+
+        if len(new_login) > 50:
+            self.ui.label_1.setText('Поле логина должно содержать менее 50 символов!')
+            return
+
+        if len(new_password) > 50:
+            self.ui.label_1.setText('Поле пароля должно содержать менее 50 символов!')
+            return
+
         self.query.exec(f"UPDATE User SET login = '{new_login}', password = '{new_password}'"
                         f"WHERE login = '{self.login}'")
         self.login = new_login
