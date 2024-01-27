@@ -38,6 +38,27 @@ def db_connect(db_name: str = 'MyDatabase', new_db: bool = False) -> QSqlDatabas
         status varchar(10) default 'Свободен'
         );''')
     if new_db:
+        print('БД создаётся по новой')
+        query.exec('''drop table if exists User''')
+        query.exec('''create table if not exists User(
+            id integer primary key,
+            login varchar(50),
+            password varchar(50),
+            role varchar(25)
+            );''')
+        query.exec('''drop table if exists Reservation''')
+        query.exec('''create table if not exists Reservation(
+            id integer primary key,
+            type_id int references Rooms(id),
+            id_user int null references User(id),
+            FIO varchar(150),
+            passport varchar(15),
+            phone varchar(20),
+            check_in_date varchar(20),
+            eviction_date varchar(20),
+            price int,
+            status varchar(10) default 'Свободен'
+            );''')
         query.exec('''drop table if exists Rooms''')
         query.exec('''create table if not exists Rooms(
         id integer primary key,
@@ -45,7 +66,7 @@ def db_connect(db_name: str = 'MyDatabase', new_db: bool = False) -> QSqlDatabas
         amount int,
         price int
         );''')
-
+        print('Таблица с комнатами создана')
         query.exec('''INSERT INTO Rooms(id, name, amount, price) VALUES
             (101,'Стандартный',1, 2500),
             (102,'Стандартный',1, 2500),
@@ -88,6 +109,7 @@ def db_connect(db_name: str = 'MyDatabase', new_db: bool = False) -> QSqlDatabas
             (409, 'Президентский',4, 30000),
             (410, 'Президентский',5, 33000);
         ''')
+        print('Таблица с комнатами заполнена')
 
     return db
 

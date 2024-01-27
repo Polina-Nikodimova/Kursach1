@@ -62,15 +62,21 @@ class CheckIn(QMainWindow):
 
     def ok(self):
         """ Метод для вывода свободных номеров с определенными характеристиками """
+        self.update_rooms_status()
         self.ui.tableWidget.clear()
         self.query = QSqlQuery(db)
         room_type = self.ui.comboBox.currentText()
         amount = int(self.ui.comboBox_2.currentText())
         self.result = []
-        self.query.exec(f"SELECT id, name, price FROM Rooms "
-                        f"WHERE name='{room_type}' and amount={amount} and status='Свободен'")
+        self.query.exec(f"SELECT RT.id, RT.name, RT.price "
+                        f"FROM Rooms RT LEFT JOIN Reservation R ON RT.id = R.type_id "
+                        f"WHERE RT.name='{room_type}' and RT.amount={amount} "
+                        f"and (R.status is null or R.status ='Свободен')")
         while self.query.next():
-            self.result.append([int(self.query.value(0)), self.query.value(1), int(self.query.value(2))])
+            id = self.query.value(0)
+            result_ids = set(room[0] for room in self.result)
+            if id not in result_ids:
+                self.result.append([int(self.query.value(0)), self.query.value(1), int(self.query.value(2))])
 
         self.ui.tableWidget.setRowCount(len(self.result))
         """ Заполнение таблицы """
@@ -82,15 +88,29 @@ class CheckIn(QMainWindow):
 
     def choose(self):
         """ Метод для открытия окна регистрации гостя """
-        self.choose = Choose(self.login, self.result[0][0])
-        self.choose.show()
-        self.hide()
+        if self.result:
+            cur_row = self.ui.tableWidget.currentRow()
+            room_id = int(self.ui.tableWidget.item(cur_row, 0).text())
+            self.choose = Choose(self.login, room_id)
+            self.choose.show()
+            self.hide()
 
     def back(self):
         """ Метод для открытия предыдущего окна """
         self.back = AdminMenu(self.login)
         self.back.show()
         self.hide()
+
+    def update_rooms_status(self):
+        current_date = datetime.now().date()
+        self.query.exec(f"SELECT id, check_in_date, eviction_date FROM Reservation")
+        while self.query.next():
+            id = self.query.value(0)
+            check_in_date = datetime.strptime(self.query.value(1), '%Y-%m-%d').date()
+            eviction_date = datetime.strptime(self.query.value(2), '%Y-%m-%d').date()
+            if check_in_date <= current_date <= eviction_date:
+                self.query.exec(f"UPDATE Reservation SET status = 'Занят' "
+                                f"WHERE id={id}")
 
 
 class Choose(QMainWindow):
@@ -115,6 +135,11 @@ class Choose(QMainWindow):
 
         self.ui.pushButton.clicked.connect(self.ready)
         self.ui.pushButton_2.clicked.connect(self.back)
+
+    @staticmethod
+    def intervals_do_not_overlap(interval1_start, interval1_end,
+                                 interval2_start, interval2_end):
+        return interval1_end < interval2_start or interval1_start > interval2_end
 
     def ready(self):
         """ Метод для проверки и записи в бд вводимых данных """
@@ -153,13 +178,50 @@ class Choose(QMainWindow):
             except ValueError:
                 return False, None
 
+        def validate_date_diff(start_date, end_date):
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+                dif = end_date - start_date
+                return dif.days >= 0
+            except ValueError:
+                return False, None
+
+        def validate_reservation_dates(start_date, end_date):
+            self.query.exec(f"SELECT RT.id, R.check_in_date, R.eviction_date "
+                            f"FROM Rooms RT LEFT JOIN Reservation R ON RT.id = R.type_id "
+                            f"WHERE RT.id = {self.type_id}")
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            try:
+                while self.query.next():
+                    room_check_in_date = datetime.strptime(self.query.value(1), '%Y-%m-%d').date()
+                    room_eviction_date = datetime.strptime(self.query.value(2), '%Y-%m-%d').date()
+
+                    if not self.intervals_do_not_overlap(room_check_in_date, room_eviction_date,
+                                                         start_date, end_date):
+                        return False
+            except:
+                return True
+            return True
+
         is_valid, formatted_date = validate_date(start_date)
         if not is_valid:
             self.ui.label_11.setText('Поле даты заселения содержит недопустимое значение!')
+            return
 
         is_valid, formatted_date = validate_date(end_date)
         if not is_valid:
             self.ui.label_11.setText('Поле даты выселения содержит недопустимое значение!')
+            return
+
+        if not validate_reservation_dates(start_date, end_date):
+            self.ui.label_11.setText('Номер на эту дату уже забронирован!')
+            return
+
+        if not validate_date_diff(start_date, end_date):
+            self.ui.label_11.setText('Дата выселения должна идти после даты заселения!')
+            return
 
         if sum(char.isdigit() for char in strings) == 0:
             self.ui.label_11.setText('Поля не должны быть пустыми!')
@@ -207,18 +269,11 @@ class Database(QMainWindow):
         self.login = login
         self.query = QSqlQuery(db)
 
-        self.data()
         self.get_data()
 
         self.ui.pushButton_3.clicked.connect(self.back)
         self.ui.pushButton.clicked.connect(self.delete)
 
-    def data(self):
-        current_date = datetime.now().date()
-        eviction_date = self.query.exec(f"SELECT eviction_date FROM Reservation")
-        check_in_date = self.query.exec(f"SELECT check_in_date FROM Reservation")
-        print(eviction_date, check_in_date)
-        self.query.exec(f"UPDATE Reservation SET status = 'Занят' WHERE datediff(eviction_date,{current_date}) <= 0 or datediff(check_in_date,{current_date}) >= 0")
 
     def back(self):
         """ Метод для открытия окна меню """
@@ -231,10 +286,15 @@ class Database(QMainWindow):
         self.ui.tableWidget.clear()
         self.result = []
         self.query.exec(f"SELECT RT.id, RT.name, RT.price, R.FIO, R.passport, R.check_in_date, R.eviction_date, R.status "
-                        f"FROM Rooms RT lEFT JOIN main.Reservation R ON RT.id = R.type_id")
+                        f"FROM Rooms RT JOIN main.Reservation R ON RT.id = R.type_id")
+
         while self.query.next():
-            self.result.append([self.query.value(0), self.query.value(1), self.query.value(2), self.query.value(3),
-                                self.query.value(4), self.query.value(5), self.query.value(6), self.query.value(7)])
+            check_in_date = datetime.strptime(self.query.value(5), '%Y-%m-%d').date()
+            eviction_date = datetime.strptime(self.query.value(6), '%Y-%m-%d').date()
+            dif = eviction_date - check_in_date
+            price = self.query.value(2)*dif.days
+            self.result.append([self.query.value(0), self.query.value(1), price, self.query.value(3),
+                                self.query.value(4), check_in_date, eviction_date, self.query.value(7)])
 
         self.ui.tableWidget.setRowCount(len(self.result))
         self.ui.tableWidget.setHorizontalHeaderLabels(['№', 'Тип', 'Цена', 'ФИО', 'Паспортные данные',
@@ -249,11 +309,11 @@ class Database(QMainWindow):
     def delete(self):
         """ Метод для удаления записи из бд """
         cur_row = self.ui.tableWidget.currentRow()
-        room = int(self.ui.tableWidget.item(cur_row, 0).text())
-        type_id = self.query.exec(f"SELECT type_id FROM Reservation WHERE id = '{room}'")
-        self.query.exec(f"DELETE FROM Reservation WHERE type_id = {room}")
-        self.query.exec(f"UPDATE Rooms SET status = 'Свободен' WHERE id = {type_id}")
-        self.ui.tableWidget.update()
+        room_id = int(self.ui.tableWidget.item(cur_row, 0).text())
+        check_in_date = self.ui.tableWidget.item(cur_row, 5).text()
+        self.query.exec(f"DELETE FROM Reservation WHERE check_in_date = '{check_in_date}' "
+                        f"AND type_id = {room_id}")
+        self.get_data()
 
 
 class PersonalArea(QMainWindow):
@@ -311,15 +371,4 @@ class PersonalArea(QMainWindow):
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    # login_window1 = Admin_menu()
-    # login_window1.show()
-    # login_window2 = Check_in()
-    # login_window2.show()
-    # login_window3 = Choose()
-    # login_window3.show()
-    # login_window4 = Database()
-    # login_window4.show()
-    # login_window5 = Personal_area()
-    # login_window5.show()
-    sys.exit(app.exec())
+    db = Database("admin")
