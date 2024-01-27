@@ -371,4 +371,5 @@ class PersonalArea(QMainWindow):
 
 
 if __name__ == '__main__':
-    db = Database("admin")
+    app = QApplication(sys.argv)
+    sys.exit(app.exec())
