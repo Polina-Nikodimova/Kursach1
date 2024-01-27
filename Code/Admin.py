@@ -1,4 +1,5 @@
 import sys
+from time import strftime
 
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QApplication, QMainWindow, QTableWidgetItem
@@ -11,7 +12,6 @@ from interface.Admin_windows.personal_area import Ui_personal_area
 from Code.database import db
 import re
 from datetime import datetime
-
 
 
 class AdminMenu(QMainWindow):
@@ -207,10 +207,18 @@ class Database(QMainWindow):
         self.login = login
         self.query = QSqlQuery(db)
 
+        self.data()
         self.get_data()
 
         self.ui.pushButton_3.clicked.connect(self.back)
         self.ui.pushButton.clicked.connect(self.delete)
+
+    def data(self):
+        current_date = datetime.now().date()
+        eviction_date = self.query.exec(f"SELECT eviction_date FROM Reservation")
+        check_in_date = self.query.exec(f"SELECT check_in_date FROM Reservation")
+        print(eviction_date, check_in_date)
+        self.query.exec(f"UPDATE Reservation SET status = 'Занят' WHERE datediff(eviction_date,{current_date}) <= 0 or datediff(check_in_date,{current_date}) >= 0")
 
     def back(self):
         """ Метод для открытия окна меню """
@@ -222,15 +230,15 @@ class Database(QMainWindow):
         """ Метод для просмотра базы данных """
         self.ui.tableWidget.clear()
         self.result = []
-        self.query.exec(f"SELECT RT.id, RT.name, RT.price, R.FIO, R.passport, R.check_in_date, R.eviction_date "
+        self.query.exec(f"SELECT RT.id, RT.name, RT.price, R.FIO, R.passport, R.check_in_date, R.eviction_date, R.status "
                         f"FROM Rooms RT lEFT JOIN main.Reservation R ON RT.id = R.type_id")
         while self.query.next():
             self.result.append([self.query.value(0), self.query.value(1), self.query.value(2), self.query.value(3),
-                                self.query.value(4), self.query.value(5), self.query.value(6)])
+                                self.query.value(4), self.query.value(5), self.query.value(6), self.query.value(7)])
 
         self.ui.tableWidget.setRowCount(len(self.result))
         self.ui.tableWidget.setHorizontalHeaderLabels(['№', 'Тип', 'Цена', 'ФИО', 'Паспортные данные',
-                                                       'Дата заселения', 'Дата выселения'])
+                                                       'Дата заселения', 'Дата выселения', 'Статус'])
         """ Заполнение таблицы """
         for row, result in enumerate(self.result):
             for column, value in enumerate(result):

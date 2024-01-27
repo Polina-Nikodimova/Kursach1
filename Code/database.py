@@ -17,8 +17,7 @@ def db_connect(db_name: str = 'MyDatabase', new_db: bool = False) -> QSqlDatabas
         id integer primary key,
         name varchar(25) not null,
         amount int,
-        price int,
-        status varchar(10) default 'Свободен'
+        price int
     );''')
     query.exec('''create table if not exists User(
         id integer primary key,
@@ -34,7 +33,9 @@ def db_connect(db_name: str = 'MyDatabase', new_db: bool = False) -> QSqlDatabas
         passport varchar(15),
         phone varchar(20),
         check_in_date varchar(20),
-        eviction_date varchar(20)
+        eviction_date varchar(20),
+        price int,
+        status varchar(10) default 'Свободен'
         );''')
     if new_db:
         query.exec('''drop table if exists Rooms''')
@@ -42,8 +43,7 @@ def db_connect(db_name: str = 'MyDatabase', new_db: bool = False) -> QSqlDatabas
         id integer primary key,
         name varchar(25) not null,
         amount int,
-        price int,
-        status varchar(10) default 'Свободен'
+        price int
         );''')
 
         query.exec('''INSERT INTO Rooms(id, name, amount, price) VALUES
